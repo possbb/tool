@@ -1,0 +1,11 @@
+﻿__pycache__/
+uploads/
+outputs/
+*.pyc
+sample_*
+duplicate_header_*
+month_header_*
+year_header_*
+.env
+.venv/
+venv/

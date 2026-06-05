@@ -1,0 +1,37 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>转换完成</title>
+  <style>
+    body { margin: 0; min-height: 100vh; font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif; background: #f4f7fb; color: #172033; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { width: min(720px, 100%); background: white; border-radius: 24px; box-shadow: 0 24px 70px rgba(15,23,42,.12); padding: 34px; text-align: center; }
+    .ok { font-size: 54px; margin-bottom: 12px; }
+    h1 { margin: 0 0 12px; }
+    p { color: #667085; line-height: 1.7; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 24px 0; text-align: left; }
+    .stat { background: #f8fafc; border: 1px solid #e4e7ec; border-radius: 16px; padding: 14px; }
+    .label { color: #667085; font-size: 13px; margin-bottom: 6px; }
+    .value { font-weight: 800; word-break: break-word; }
+    a.button { display: block; text-decoration: none; background: #2563eb; color: white; border-radius: 15px; padding: 15px 18px; font-size: 18px; font-weight: 800; margin-top: 18px; }
+    a.secondary { display: inline-block; color: #2563eb; margin-top: 18px; text-decoration: none; font-weight: 700; }
+    @media (max-width: 720px) { .stats { grid-template-columns: 1fr; } .card { padding: 24px; } }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="ok">✅</div>
+    <h1>转换完成</h1>
+    <p>已把识别到的时间数据列转成行，你可以下载结果文件。</p>
+    <div class="stats">
+      <div class="stat"><div class="label">原文件</div><div class="value">{{ original_name }}</div></div>
+      <div class="stat"><div class="label">时间列</div><div class="value">{{ time_column_count }} 个</div></div>
+      <div class="stat"><div class="label">输出行数</div><div class="value">{{ row_count }} 行</div></div>
+    </div>
+    <p>识别到：{{ time_columns }}</p>
+    <a class="button" href="{{ url_for('download', filename=download_id) }}">下载转换结果</a>
+    <a class="secondary" href="{{ url_for('index') }}">继续转换其他文件</a>
+  </main>
+</body>
+</html>
