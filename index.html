@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>时间列自动转行工具</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="vendor/xlsx.full.min.js"></script>
   <style>
     :root {
       color-scheme: light;
@@ -368,7 +368,10 @@
 
       const originalHeaders = trimmedRows[bestIndex];
       const headers = makeUniqueHeaders(originalHeaders);
-      const displayNames = Object.fromEntries(headers.map((header, index) => [header, normalizeHeader(originalHeaders[index]) || `col_${index + 1}`]));
+      const displayNames = {};
+      headers.forEach((header, index) => {
+        displayNames[header] = normalizeHeader(originalHeaders[index]) || `col_${index + 1}`;
+      });
       const dataRows = trimmedRows.slice(bestIndex + 1).filter(row => row.some(value => value !== null && value !== undefined && String(value).trim() !== ''));
       const timeColumns = headers.filter(header => looksLikeTimeHeader(displayNames[header]));
       if (!timeColumns.length) throw new Error('未能识别出时间数据列。');
@@ -382,7 +385,10 @@
       const idColumns = table.headers.filter(header => !table.timeColumns.includes(header));
       outputRows.push([...idColumns.map(header => table.displayNames[header] || stripDuplicateSuffix(header)), selectedTimeName, selectedValueName]);
       table.dataRows.forEach(row => {
-        const rowObject = Object.fromEntries(table.headers.map((header, index) => [header, row[index] ?? '']));
+        const rowObject = {};
+        table.headers.forEach((header, index) => {
+          rowObject[header] = row[index] ?? '';
+        });
         table.timeColumns.forEach(timeColumn => {
           outputRows.push([
             ...idColumns.map(header => rowObject[header] ?? ''),
@@ -395,8 +401,15 @@
     }
 
     async function readWorkbook(file) {
+      if (!window.XLSX) {
+        throw new Error('????????????? vendor/xlsx.full.min.js ????????????');
+      }
       const buffer = await file.arrayBuffer();
-      return XLSX.read(buffer, { type: 'array', cellDates: true });
+      try {
+        return XLSX.read(buffer, { type: 'array', cellDates: true, dense: true, WTF: false });
+      } catch (error) {
+        return XLSX.read(buffer, { type: 'array', cellDates: false, dense: true, WTF: false });
+      }
     }
 
     async function handleFile(file) {
@@ -453,7 +466,7 @@
       try {
         const selectedSheet = sheetName.value || currentWorkbook.SheetNames[0];
         const sheet = currentWorkbook.Sheets[selectedSheet];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '', blankrows: false });
         const table = detectTable(rows);
         const outputRows = convertRows(table);
         const outputWorkbook = XLSX.utils.book_new();
