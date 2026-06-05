@@ -1,0 +1,484 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>时间列自动转行工具</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --border: #e4e7ec;
+      --danger: #b42318;
+      --danger-bg: #fef3f2;
+      --success: #067647;
+      --success-bg: #ecfdf3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      background: radial-gradient(circle at top left, #dbeafe, transparent 30%), var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .wrap { width: min(900px, 100%); }
+    .hero { text-align: center; margin-bottom: 24px; }
+    h1 { margin: 0 0 10px; font-size: clamp(28px, 5vw, 42px); }
+    .hero p { margin: 0; color: var(--muted); font-size: 17px; }
+    .card {
+      background: rgba(255,255,255,.94);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, .12);
+      padding: 28px;
+    }
+    .message {
+      display: none;
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+    .message.show { display: block; }
+    .message.error { background: var(--danger-bg); color: var(--danger); border: 1px solid #fecdca; }
+    .message.success { background: var(--success-bg); color: var(--success); border: 1px solid #abefc6; }
+    label { display: block; font-weight: 700; margin-bottom: 8px; }
+    .dropzone {
+      border: 2px dashed #9db7ef;
+      border-radius: 20px;
+      background: #f8fbff;
+      padding: 34px 20px;
+      text-align: center;
+      transition: .2s;
+      cursor: pointer;
+    }
+    .dropzone:hover, .dropzone.dragover { border-color: var(--primary); background: #eff6ff; }
+    .dropzone input { display: none; }
+    .upload-icon { font-size: 42px; margin-bottom: 10px; }
+    .file-name { margin-top: 10px; color: var(--primary-dark); font-weight: 700; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 22px;
+    }
+    input[type="text"], select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 12px 13px;
+      font: inherit;
+      outline: none;
+      background: #fff;
+    }
+    input[type="text"]:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 4px #dbeafe; }
+    .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    button, .download-button {
+      margin-top: 24px;
+      width: 100%;
+      border: 0;
+      border-radius: 15px;
+      background: var(--primary);
+      color: white;
+      font-size: 18px;
+      font-weight: 800;
+      padding: 15px 18px;
+      cursor: pointer;
+      transition: .2s;
+      display: block;
+      text-align: center;
+      text-decoration: none;
+    }
+    button:hover, .download-button:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    button:disabled { cursor: wait; opacity: .72; transform: none; }
+    .download-button { display: none; background: #16a34a; }
+    .download-button.show { display: block; }
+    .examples {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .pill { background: #f2f4f7; border-radius: 999px; padding: 8px 10px; text-align: center; }
+    .loading-mask {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, .38);
+      backdrop-filter: blur(5px);
+      z-index: 50;
+      padding: 20px;
+    }
+    .loading-mask.show { display: flex; }
+    .loading-card {
+      width: min(460px, 100%);
+      background: white;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+      text-align: center;
+    }
+    .spinner {
+      width: 52px;
+      height: 52px;
+      border: 5px solid #dbeafe;
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      animation: spin 1s linear infinite;
+    }
+    .progress {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #e5e7eb;
+      margin-top: 18px;
+    }
+    .progress-bar {
+      width: 45%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #60a5fa, #2563eb);
+      animation: progress 1.2s ease-in-out infinite;
+    }
+    .loading-title { font-size: 20px; font-weight: 900; margin-bottom: 8px; }
+    .loading-text { color: var(--muted); line-height: 1.6; }
+    .stats {
+      display: none;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .stats.show { display: grid; }
+    .stat { background: #f8fafc; border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .stat-label { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+    .stat-value { font-weight: 900; word-break: break-word; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes progress { 0% { transform: translateX(-110%); } 100% { transform: translateX(230%); } }
+    @media (max-width: 760px) { .grid, .examples, .stats { grid-template-columns: 1fr; } .card { padding: 22px; } }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1>时间列自动转行工具</h1>
+      <p>上传表格，自动识别日期、月份、年份、季度列，并转换成“时间 / 值”长表。文件只在你的浏览器中处理。</p>
+    </section>
+    <section class="card">
+      <div class="message" id="message"></div>
+      <form id="convertForm">
+        <label>选择表格文件</label>
+        <div class="dropzone" id="dropzone">
+          <input id="file" name="file" type="file" accept=".xlsx,.xls,.xlsm,.csv,.tsv" required>
+          <div class="upload-icon">📄</div>
+          <strong>点击选择，或把文件拖到这里</strong>
+          <div class="hint">支持 xlsx、xls、xlsm、csv、tsv</div>
+          <div class="file-name" id="fileName"></div>
+        </div>
+        <div class="grid">
+          <div>
+            <label for="sheetName">工作表</label>
+            <select id="sheetName"><option value="">默认第一个工作表</option></select>
+            <div class="hint">选择要转换的 Excel 工作表</div>
+          </div>
+          <div>
+            <label for="timeName">时间列名</label>
+            <input id="timeName" type="text" value="时间">
+            <div class="hint">输出中的时间字段</div>
+          </div>
+          <div>
+            <label for="valueName">数值列名</label>
+            <input id="valueName" type="text" value="值">
+            <div class="hint">输出中的数值字段</div>
+          </div>
+        </div>
+        <button id="submitButton" type="submit">开始转换并下载</button>
+      </form>
+      <div class="stats" id="stats">
+        <div class="stat"><div class="stat-label">识别时间列</div><div class="stat-value" id="timeCount">-</div></div>
+        <div class="stat"><div class="stat-label">生成行数</div><div class="stat-value" id="rowCount">-</div></div>
+        <div class="stat"><div class="stat-label">输出文件</div><div class="stat-value" id="outputName">-</div></div>
+      </div>
+      <a id="downloadButton" class="download-button" download>下载转换结果</a>
+      <div class="examples">
+        <div class="pill">2024-01</div>
+        <div class="pill">2024年1月</div>
+        <div class="pill">2025年</div>
+        <div class="pill">2025</div>
+      </div>
+    </section>
+  </main>
+  <div class="loading-mask" id="loadingMask" role="status" aria-live="polite">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div class="loading-title">正在转换，请稍等</div>
+      <div class="loading-text">正在读取表格并自动识别时间列，文件较大时可能需要几十秒。</div>
+      <div class="progress"><div class="progress-bar"></div></div>
+    </div>
+  </div>
+  <script>
+    const fileInput = document.getElementById('file');
+    const fileName = document.getElementById('fileName');
+    const dropzone = document.getElementById('dropzone');
+    const form = document.getElementById('convertForm');
+    const loadingMask = document.getElementById('loadingMask');
+    const submitButton = document.getElementById('submitButton');
+    const message = document.getElementById('message');
+    const sheetName = document.getElementById('sheetName');
+    const timeName = document.getElementById('timeName');
+    const valueName = document.getElementById('valueName');
+    const downloadButton = document.getElementById('downloadButton');
+    const stats = document.getElementById('stats');
+    const timeCount = document.getElementById('timeCount');
+    const rowCount = document.getElementById('rowCount');
+    const outputName = document.getElementById('outputName');
+
+    let currentWorkbook = null;
+    let currentFile = null;
+
+    const timePatterns = [
+      /^\s*\d{4}\D{1,4}\s*$/,
+      /^\s*\d{4}\D{1,6}\d{1,2}\D{0,6}\s*$/,
+      /^\s*\d{4}\s*[-/.]\s*\d{1,2}(\s*[-/.]\s*\d{1,2})?\s*$/,
+      /^\s*\d{1,2}\D{1,4}\s*$/,
+      /^\s*\d{4}\s*[qQ]\s*[1-4]\s*$/,
+      /^\s*[qQ][1-4]\s*\d{4}\s*$/,
+      /^\s*\d{4}\s*$/,
+      /^\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s*\d{2,4}?\s*$/i,
+    ];
+    const nonTimeWords = new Set(['时间', '日期', '月份', '年度', '年份', '季度', '周', '星期', 'period', 'date', 'month', 'year', 'quarter', 'week', 'time']);
+
+    function normalizeHeader(value) {
+      if (value === null || value === undefined) return '';
+      if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+      let text = String(value).trim();
+      if (text.endsWith(' 00:00:00')) text = text.slice(0, -9);
+      if (/\d{4}\D{1,6}\d{1,2}/.test(text)) text = text.replace(/\s+/g, '');
+      return text;
+    }
+
+    function looksLikeExcelSerial(value) {
+      if (typeof value === 'boolean') return false;
+      const number = Number(value);
+      return Number.isInteger(number) && number >= 20000 && number <= 80000;
+    }
+
+    function looksLikeTimeHeader(value) {
+      const text = normalizeHeader(value);
+      if (!text) return false;
+      if (nonTimeWords.has(text.toLowerCase())) return false;
+      if (value instanceof Date) return true;
+      if (looksLikeExcelSerial(value)) return true;
+      return timePatterns.some(pattern => pattern.test(text));
+    }
+
+    function showMessage(text, type = 'error') {
+      message.textContent = text;
+      message.className = `message show ${type}`;
+    }
+
+    function clearMessage() {
+      message.textContent = '';
+      message.className = 'message';
+    }
+
+    function setLoading(isLoading) {
+      loadingMask.classList.toggle('show', isLoading);
+      submitButton.disabled = isLoading;
+      submitButton.textContent = isLoading ? '正在转换...' : '开始转换并下载';
+    }
+
+    function resetResult() {
+      stats.classList.remove('show');
+      downloadButton.classList.remove('show');
+      downloadButton.removeAttribute('href');
+    }
+
+    function updateSheetOptions(workbook) {
+      sheetName.innerHTML = '';
+      workbook.SheetNames.forEach((name, index) => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = index === 0 ? `${name}（默认）` : name;
+        sheetName.appendChild(option);
+      });
+    }
+
+    function rowTimeScore(row) {
+      return row.reduce((count, value) => count + (looksLikeTimeHeader(value) ? 1 : 0), 0);
+    }
+
+    function trimEmptyRowsAndColumns(rows) {
+      let filteredRows = rows.filter(row => row.some(value => value !== null && value !== undefined && String(value).trim() !== ''));
+      if (!filteredRows.length) return [];
+      const maxLength = Math.max(...filteredRows.map(row => row.length));
+      const keepColumns = [];
+      for (let columnIndex = 0; columnIndex < maxLength; columnIndex++) {
+        if (filteredRows.some(row => row[columnIndex] !== null && row[columnIndex] !== undefined && String(row[columnIndex]).trim() !== '')) {
+          keepColumns.push(columnIndex);
+        }
+      }
+      return filteredRows.map(row => keepColumns.map(columnIndex => row[columnIndex]));
+    }
+
+    function makeUniqueHeaders(headers) {
+      const seen = new Map();
+      return headers.map((header, index) => {
+        const base = normalizeHeader(header) || `col_${index + 1}`;
+        const count = (seen.get(base) || 0) + 1;
+        seen.set(base, count);
+        return count === 1 ? base : `${base}__dup${count}`;
+      });
+    }
+
+    function stripDuplicateSuffix(header) {
+      return normalizeHeader(header).replace(/__dup\d+$/, '');
+    }
+
+    function detectTable(rows) {
+      const trimmedRows = trimEmptyRowsAndColumns(rows);
+      if (!trimmedRows.length) throw new Error('表格为空，无法转换。');
+
+      let bestIndex = -1;
+      let bestScore = 0;
+      trimmedRows.slice(0, 30).forEach((row, index) => {
+        const score = rowTimeScore(row);
+        if (score > bestScore) {
+          bestScore = score;
+          bestIndex = index;
+        }
+      });
+      if (bestScore < 2) throw new Error('未能识别出时间数据列。请确认表头包含多个日期、月份、季度或年份，例如 2024年1月、2025年、2025。');
+
+      const originalHeaders = trimmedRows[bestIndex];
+      const headers = makeUniqueHeaders(originalHeaders);
+      const displayNames = Object.fromEntries(headers.map((header, index) => [header, normalizeHeader(originalHeaders[index]) || `col_${index + 1}`]));
+      const dataRows = trimmedRows.slice(bestIndex + 1).filter(row => row.some(value => value !== null && value !== undefined && String(value).trim() !== ''));
+      const timeColumns = headers.filter(header => looksLikeTimeHeader(displayNames[header]));
+      if (!timeColumns.length) throw new Error('未能识别出时间数据列。');
+      return { headers, displayNames, dataRows, timeColumns };
+    }
+
+    function convertRows(table) {
+      const outputRows = [];
+      const selectedTimeName = timeName.value.trim() || '时间';
+      const selectedValueName = valueName.value.trim() || '值';
+      const idColumns = table.headers.filter(header => !table.timeColumns.includes(header));
+      outputRows.push([...idColumns.map(header => table.displayNames[header] || stripDuplicateSuffix(header)), selectedTimeName, selectedValueName]);
+      table.dataRows.forEach(row => {
+        const rowObject = Object.fromEntries(table.headers.map((header, index) => [header, row[index] ?? '']));
+        table.timeColumns.forEach(timeColumn => {
+          outputRows.push([
+            ...idColumns.map(header => rowObject[header] ?? ''),
+            normalizeHeader(table.displayNames[timeColumn] || stripDuplicateSuffix(timeColumn)),
+            rowObject[timeColumn] ?? '',
+          ]);
+        });
+      });
+      return outputRows;
+    }
+
+    async function readWorkbook(file) {
+      const buffer = await file.arrayBuffer();
+      return XLSX.read(buffer, { type: 'array', cellDates: true });
+    }
+
+    async function handleFile(file) {
+      currentFile = file;
+      currentWorkbook = await readWorkbook(file);
+      fileName.textContent = `已选择：${file.name}`;
+      updateSheetOptions(currentWorkbook);
+      resetResult();
+      clearMessage();
+    }
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+      if (!fileInput.files[0]) return;
+      try {
+        await handleFile(fileInput.files[0]);
+      } catch (error) {
+        showMessage(`读取文件失败：${error.message}`);
+      }
+    });
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, event => {
+        event.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, event => {
+        event.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+    });
+    dropzone.addEventListener('drop', async event => {
+      const file = event.dataTransfer.files[0];
+      if (!file) return;
+      fileInput.files = event.dataTransfer.files;
+      try {
+        await handleFile(file);
+      } catch (error) {
+        showMessage(`读取文件失败：${error.message}`);
+      }
+    });
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      clearMessage();
+      resetResult();
+      if (!currentWorkbook || !currentFile) {
+        showMessage('请先选择一个表格文件。');
+        return;
+      }
+      setLoading(true);
+      await new Promise(resolve => setTimeout(resolve, 80));
+      try {
+        const selectedSheet = sheetName.value || currentWorkbook.SheetNames[0];
+        const sheet = currentWorkbook.Sheets[selectedSheet];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
+        const table = detectTable(rows);
+        const outputRows = convertRows(table);
+        const outputWorkbook = XLSX.utils.book_new();
+        const outputSheet = XLSX.utils.aoa_to_sheet(outputRows);
+        XLSX.utils.book_append_sheet(outputWorkbook, outputSheet, '转换结果');
+        const baseName = currentFile.name.replace(/\.[^.]+$/, '');
+        const filename = `${baseName}_时间列转行.xlsx`;
+        const binary = XLSX.write(outputWorkbook, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([binary], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        downloadButton.href = url;
+        downloadButton.download = filename;
+        downloadButton.classList.add('show');
+        downloadButton.textContent = '下载转换结果';
+        timeCount.textContent = `${table.timeColumns.length} 个`;
+        rowCount.textContent = `${outputRows.length - 1} 行`;
+        outputName.textContent = filename;
+        stats.classList.add('show');
+        showMessage(`转换完成，已识别 ${table.timeColumns.length} 个时间列。`, 'success');
+      } catch (error) {
+        showMessage(error.message || '转换失败，请检查表格格式。');
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>
